@@ -1,0 +1,267 @@
+[ALL]
+POST: /auth/register
+request: {
+    "username": "string",
+    "password": "string",
+    "email": "string",
+    "fullname": "string"
+}
+response: {
+    "username": "string"
+}
+STATUS_CODE:
+- Success: 201 CREATED
+- Errors:
+  - 400 Bad Request (invalid input, missing fields)
+  - 409 Conflict (username or email already exists)
+  - 500 Internal Server Error
+
+---
+
+[ALL]
+POST: /auth/login
+request: {
+    "username_or_email": "string",
+    "password": "string"
+}
+response: {
+    "token": "string",
+    "refresh_token": "string"
+}
+STATUS_CODE:
+- Success: 200 OK
+- Errors:
+  - 400 Bad Request (missing username/email or password)
+  - 401 Unauthorized (invalid credentials or is banned)
+  - 500 Internal Server Error
+
+---
+
+[ALL]
+POST: /auth/google
+request: {
+    "google_token": "string"
+}
+response: {
+    "token": "string",
+    "refresh_token": "string"
+}
+- if !user:
++ username: "",
++ password: ""
++ email: google email
+STATUS_CODE:
+- Success: 200 OK / 201 CREATED (auto-create new user)
+- Errors:
+  - 400 Bad Request (invalid google token)
+  - 401 Unauthorized (google auth failed or is banned)
+  - 500 Internal Server Error
+
+---
+
+[ALL]
+POST: /auth/refresh
+request: {
+    "refresh_token": "string"
+}
+response: {
+    "token": "string"
+}
+STATUS_CODE:
+- Success: 200 OK
+- Errors:
+  - 400 Bad Request (missing refresh token)
+  - 401 Unauthorized (invalid or expired refresh token or is banned)
+  - 500 Internal Server Error
+
+---
+
+[GATEWAY ONLY]
+Authorization: "Bearer token"
+POST: /auth/verify
+response: {
+    "verified": "bolean",
+    "user_id": "int/string"
+    “role”: “string”
+    “is_banned”: “boolean”
+}
+STATUS_CODE:
+- Success: 200 OK
+- Errors:
+  - 401 Unauthorized (invalid Bearer token or is banned)
+  - 403 Forbidden (not gateway service)
+  - 500 Internal Server Error
+
+---
+
+[ALL]
+GET: /auth/users/me
+client: Authorization: "Bearer token"
+backend: header x-user-id
+response: {
+    "username": "string",
+    "email": "string",
+    "fullname": "string"
+    "role": "ADMIN | MEMBER",
+    "avatar_image_link": "string"
+}
+STATUS_CODE:
+- Success: 200 OK
+- Errors:
+  - 401 Unauthorized (invalid or missing token)
+  - 404 Not Found (user removed)
+  - 500 Internal Server Error
+
+---
+
+[ALL]
+PUT: /auth/users/me
+Authorization: "Bearer token"
+request: {
+    "username": "string", | if empty
+    "old_password": "string",
+    "new_password": "string",
+    "fullname": "string",
+    "avatar_image": "file:blob"
+}
+response: {
+    "username": "string",
+    "email": "string",
+    "fullname": "string"
+    "role": "ADMIN | MEMBER",
+    "avatar_image_link": "string"
+}
+STATUS_CODE:
+- Success: 200 OK
+- Errors:
+  - 400 Bad Request (invalid fields)
+  - 401 Unauthorized
+  - 403 Forbidden (attempt to change forbidden fields)
+  - 409 Conflict (username already exists)
+  - 500 Internal Server Error
+
+---
+
+[ADMIN]
+POST: /auth/users
+Authorization: "Bearer token" _ ADMIN ONLY
+request: {
+    "username": "string",
+    "email": "string",
+    "password": "string",
+    "fullname": "string"
+    "role": "ADMIN | MEMBER"
+}
+response: {
+    "username": "string"
+}
+STATUS_CODE:
+- Success: 201 CREATED
+- Errors:
+  - 400 Bad Request
+  - 401 Unauthorized
+  - 403 Forbidden (not admin)
+  - 409 Conflict (username/email exists)
+  - 500 Internal Server Error
+
+---
+
+[ADMIN]
+GET: /auth/users?page=...
+param: {
+	search=”string”,
+	page=”int”,
+	"filter": "string", # filter=role:ALL, role:ADMIN, role:MEMBER
+}
+Authorization: "Bearer token" _ ADMIN ONLY
+response: {
+    "users": [{
+        "user_id": "id",
+        "username": "string",
+        "email": "string",
+        "fullname": "string"
+        "role": "ADMIN | MEMBER",
+        "avatar_image_link": "string | url"
+    }],
+    "meta": {
+   "total_items": 120,
+   "page_size": 10,
+   "current_page": 2,
+   "total_pages": 12
+    }
+}
+STATUS_CODE:
+- Success: 200 OK
+- Errors:
+  - 400 Bad Request (invalid search query)
+  - 401 Unauthorized
+  - 403 Forbidden
+  - 500 Internal Server Error
+
+---
+
+[ADMIN]
+GET: /auth/users/:id
+Authorization: "Bearer token" _ ADMIN ONLY
+response: {
+    "user_id": "id",
+    "username": "string",
+    "email": "string",
+    "fullname": "string"
+    "role": "ADMIN | MEMBER",
+    "avatar_image_link": "string | url"
+}
+STATUS_CODE:
+- Success: 200 OK
+- Errors:
+  - 401 Unauthorized
+  - 403 Forbidden
+  - 404 Not Found (user does not exist)
+  - 500 Internal Server Error
+
+---
+
+[ADMIN]
+PUT: /auth/users/:id
+Authorization: "Bearer token" _ ADMIN ONLY
+request: {
+    "username": "string",
+    "email": "string",
+    "fullname": "string",
+    "role": "ADMIN | MEMBER",
+    "avatar_image": "file:blob",
+    “is_banned”: “boolean”
+}
+response: {
+    "user_id": "id",
+    "username": "string",
+    "email": "string",
+    "fullname": "string"
+    "role": "ADMIN | MEMBER",
+    "avatar_image_link": "string | url",
+    “is_banned”: “boolean”
+}
+STATUS_CODE:
+- Success: 200 OK
+- Errors:
+  - 400 Bad Request (invalid input)
+  - 401 Unauthorized
+  - 403 Forbidden
+  - 404 Not Found
+  - 409 Conflict (username/email exists)
+  - 500 Internal Server Error
+
+[ADMIN] POST:
+ /auth/users/:id/ban Authorization: "Bearer token" _ ADMIN ONLY 
+request: {}
+response: { "message": "string", "user_id": "id" } 
+STATUS_CODE:
+Success: 200 OK
+Errors:
+400 Bad Request (cannot ban yourself)
+401 Unauthorized
+403 Forbidden (requester is not admin OR target is admin)
+404 Not Found (target user not found)
+409 Conflict (user is already banned)
+500 Internal Server Error
+
